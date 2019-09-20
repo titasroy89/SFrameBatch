@@ -10,7 +10,7 @@ class SubInfo(object):
         self.name = name
         self.numberOfFiles =numberOfFiles #number of expected files
         self.data_type = data_type
-        self.rootFileCounter = 0 #number of expected files 
+        self.rootFileCounter = 0 #number of expected files
         self.status = 0   # 0: init, 1: data on disk
         self.missingFiles = []
         self.pids = ['']*numberOfFiles
@@ -24,8 +24,9 @@ class SubInfo(object):
     def reset_resubmit(self,value):
         self.resubmit =[value]*self.numberOfFiles
     def to_JSON(self):
-        #print json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
-        return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+        json_s=json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
+        json_s=''.join(json_s.split()) #remove line breaks and whitespace
+        return json_s
     def load_Dict(self,data):
         self.__dict__ = data
     def process_batchStatus(self,batch,it):
@@ -40,4 +41,3 @@ class SubInfo(object):
             print "not yet implemented in ht condor! Do not remember what happens!"
             return -2
         return batch
-
