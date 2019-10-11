@@ -21,16 +21,16 @@ import xml.sax
 
 # takes care of looking into qstat 
 class pidWatcher(object):
-    def __init__(self):
+    def __init__(self,ListOfArrayPid=[]):
         self.pidList = []
         self.taskList = []
         self.stateList = []
         try:
-            #with the change from sge to condor this can nwo be a json dict!
-            proc_qstat = subprocess.Popen(['condor_q','-json','-attributes','JobStatus,GlobalJobId'],stdout=subprocess.PIPE)
-            qstat_xml =  StringIO.StringIO(proc_qstat.communicate()[0])
-            if qstat_xml.getvalue():
-                qstat_xml_par = json.loads(qstat_xml.getvalue())            
+            #looking into condor_q for jobs that are idle, running or hold (HTC State 1,2 and 5)
+            proc_cQueue = subprocess.Popen(['condor_q','-json'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            cQueue_jsons =  proc_cQueue.communicate()[0]
+            if cQueue_jsons:
+                processes_json=json.loads(cQueue_jsons)
                 self.parserWorked = True
             else:
                 self.parserWorked = False
@@ -38,19 +38,18 @@ class pidWatcher(object):
             #print e
             self.pidTaskList = []
             self.parserWorked = False
-            print 'Processing qstat information did not work. Maybe the NAF has some problem. Or nothing is running on the Batch anymore.'
-            print 'Going to wait for 5 minutes, lets see if qstat will start to work again.'
-            time.sleep(10)
-            return 
-       
-        if self.parserWorked: 
-          for item in qstat_xml_par:
-            #print item
-            raw_id = item.get("GlobalJobId")
-            jobid = raw_id.split("#")[1]
-            self.pidList.append(jobid)
-            self.stateList.append(item.get("JobStatus"))
-            
+            print 'Processing condor_q information did not work. Maybe the NAF has some problem. Or nothing is running on the Batch anymore.'
+            print 'Going to wait for 5 minutes, lets see if condor_q will start to work again.'
+            time.sleep(300)
+            return
+        if self.parserWorked:
+            for item in processes_json:
+                raw_id = item.get("GlobalJobId")
+                jobid = raw_id.split("#")[1]
+                if(jobid.split('.')[0] not in ListOfArrayPid):
+                    continue
+                self.pidList.append(jobid)
+                self.stateList.append(item.get("JobStatus"))
    
     def check_pidstatus(self,arraypid,pidlist,task,debug=False):
         pid = 0
@@ -174,7 +173,8 @@ class JobManager(object):
         waitingFlag_autoresub = False
         missingRootFiles = 0 
         ListOfDict =[]
-        self.watch = pidWatcher()
+        ListOfArrayPid=[self.subInfo[k].arrayPid for k in range(len(self.subInfo))]
+        self.watch = pidWatcher(ListOfArrayPid)
         ask = True
         for i in xrange(len(self.subInfo)-1, -1, -1):
             process = self.subInfo[i]
