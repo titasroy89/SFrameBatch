@@ -21,56 +21,47 @@ import xml.sax
 
 # takes care of looking into qstat 
 class pidWatcher(object):
-    def __init__(self):
-        self.pidList = []
-        self.taskList = []
-        self.stateList = []
+    def __init__(self,subInfo):
+        self.pidStates = {}
         try:
-            #with the change from sge to condor this can nwo be a json dict!
-            proc_qstat = subprocess.Popen(['condor_q','-json','-attributes','JobStatus,GlobalJobId'],stdout=subprocess.PIPE)
-            qstat_xml =  StringIO.StringIO(proc_qstat.communicate()[0])
-            if qstat_xml.getvalue():
-                qstat_xml_par = json.loads(qstat_xml.getvalue())            
+            #looking into condor_q for jobs that are idle, running or hold (HTC State 1,2 and 5)
+            proc_cQueue = subprocess.Popen(['condor_q','-json'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            cQueue_jsons = proc_cQueue.communicate()[0]
+            if cQueue_jsons:
+                processes_json = json.loads(cQueue_jsons)
                 self.parserWorked = True
             else:
                 self.parserWorked = False
         except Exception as e:
-            #print e
-            self.pidTaskList = []
+            # print e
             self.parserWorked = False
-            print 'Processing qstat information did not work. Maybe the NAF has some problem. Or nothing is running on the Batch anymore.'
-            print 'Going to wait for 5 minutes, lets see if qstat will start to work again.'
-            time.sleep(10)
-            return 
-       
-        if self.parserWorked: 
-          for item in qstat_xml_par:
-            #print item
-            raw_id = item.get("GlobalJobId")
-            jobid = raw_id.split("#")[1]
-            self.pidList.append(jobid)
-            self.stateList.append(item.get("JobStatus"))
-            
-   
-    def check_pidstatus(self,arraypid,pidlist,task,debug=False):
-        pid = 0
-        if pidlist:
-            pid = int(pidlist)
-        elif arraypid > 0:
-            pid = arraypid
-        else:
+            print 'Processing condor_q information did not work. Maybe the NAF has some problem. Or nothing is running on the Batch anymore.'
+            print 'Going to wait for 5 minutes, lets see if condor_q will start to work again.'
+            time.sleep(300)
+            return
+        if self.parserWorked:
+            ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo))]
+            # adding Pids of resubmitted jobs
+            for process in subInfo:
+                for pid in process.pids:
+                    if process.arrayPid not in pid:
+                        ListOfPids.append(pid)
+            for item in processes_json:
+                raw_id = item["GlobalJobId"]
+                jobid = raw_id.split("#")[1]
+                if(jobid.split('.')[0] not in ListOfPids):
+                    continue
+                self.pidStates.update({jobid:item["JobStatus"]})
+
+    def check_pidstatus(self, pid, debug=False):
+        if '.' not in str(pid): pid = pid + '.0' 
+        if pid not in self.pidStates:
             return -1
-
-        for i in range(len(self.pidList)):
-            inrange = False
-
-            if debug and str(self.pidList[i]) == str(pid): print 'pid', pid, 'task', task, 'pidlist', self.pidList[i], 'state list', self.stateList[i], 'task List', self.taskList[i], 'in range',inrange or self.taskList[i]==-1
-            if '.' not in str(self.pidList[i]): self.pidList[i]= self.pidList[i]+'.0' 
-            if str(self.pidList[i]) == str(pid):
-                if str(self.stateList[i]) == '1' or str(self.stateList[i]) =='2' or str(self.stateList[i]) =='4': # 1 idle; 2 running; 4 completed
-                    return 1  # in the batch
-                else: 
-                    return 2  # error state
+        state = str(self.pidStates[pid])
+        if(state == '1' or state == '2' or state == '4'):
+            return 1  # in the batch
+        else:
+            return 2  # error state
         return 0  # not available
 
 #JSON Format is used to store the submission information
@@ -143,17 +134,18 @@ class JobManager(object):
             process.reachedBatch = [False]*process.numberOfFiles
             if process.status != 0:
                 process.status = 0
-            if any(process.pids): 
-                process.pids = ['']*process.numberOfFiles
+            process.pids=[process.arrayPid+'.'+str(i) for i in range(process.numberOfFiles)]
+            # if any(process.pids): 
+            #     process.pids = ['']*process.numberOfFiles
     #resubmit the jobs see above      
     def resubmit_jobs(self):
         qstat_out = self.watch.parserWorked
         ask = True
         for process in self.subInfo:
 	    for it in process.missingFiles:
-                batchstatus = self.watch.check_pidstatus(process.pids[it-1],process.arrayPid,it)
+                batchstatus = self.watch.check_pidstatus(process.pids[it-1])
                 if qstat_out and batchstatus==-1 and ask:
-                    print '\n' + qstat_out
+                    print '\n' + str(qstat_out)
                     if self.exitOnQuestion:
                         exit(-1)
                     elif not self.keepGoing:
@@ -174,7 +166,7 @@ class JobManager(object):
         waitingFlag_autoresub = False
         missingRootFiles = 0 
         ListOfDict =[]
-        self.watch = pidWatcher()
+        self.watch = pidWatcher(self.subInfo)
         ask = True
         for i in xrange(len(self.subInfo)-1, -1, -1):
             process = self.subInfo[i]
@@ -186,7 +178,7 @@ class JobManager(object):
                     rootFiles+=1
                     continue
                 #have a look at the pids with qstat
-                batchstatus = self.watch.check_pidstatus(process.pids[it],process.arrayPid,it+1)
+                batchstatus = self.watch.check_pidstatus(process.pids[it])
                 #kill batchjobs with error otherwise update batchinfo
                 batchstatus = process.process_batchStatus(batchstatus,it)
                 #check if files have arrived 
