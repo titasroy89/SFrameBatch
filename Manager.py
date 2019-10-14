@@ -39,8 +39,10 @@ class pidWatcher(object):
             print 'Going to wait for 5 minutes, lets see if condor_q will start to work again.'
             time.sleep(300)
             return
+        ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo))]
+        if(any(i==-1 for i in ListOfPids)):
+            self.parserWorked=False
         if self.parserWorked:
-            ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo))]
             # adding Pids of resubmitted jobs
             for process in subInfo:
                 for pid in process.pids:
