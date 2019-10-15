@@ -217,6 +217,7 @@ class JobManager(object):
                     #print 'resubmitting', process.name+'_'+str(it+1),es not Found',process.notFoundCounter[it], 'pid', process.pids[it], process.arrayPid, 'task',it+1
                     waitingFlag_autoresub = True
                     process.pids[it] = resubmit(self.outputstream+process.name,process.name+'_'+str(it+1),self.workdir,self.header)
+                    process.status = 0
                     #print 'AutoResubmitted job',process.name,it, 'pid', process.pids[it]
                     self.printString.append('File Found '+str(os.path.exists(filename)))
                     if os.path.exists(filename): self.printString.append('Timestamp is ok '+str(process.startingTime < os.path.getctime(filename)))
