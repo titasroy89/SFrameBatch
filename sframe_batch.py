@@ -237,6 +237,10 @@ def SFrameBatchMain(input_options):
     print "SFrame Batch was running for",round(stop - start,2),"sec"
     #exit gracefully
 
+    if (options.submit or options.resubmit):
+        # return code here indicates (re)submission went OK, not job statuses are all done
+        return 0
+
     if all(si.status == 1 for si in manager.subInfo):
         return 0
     else:
