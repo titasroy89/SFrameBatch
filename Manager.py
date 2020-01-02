@@ -23,7 +23,7 @@ import xml.sax
 class pidWatcher(object):
     def __init__(self,subInfo):
         self.pidStates = {}
-        ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo))]        
+        ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo)) if subInfo[k].arrayPid > 0 ]
         try:
             #looking into condor_q for jobs that are idle, running or hold (HTC State 1,2 and 5)
             proc_cQueue = subprocess.Popen(['condor_q']+ListOfPids+['-af:,','GlobalJobId','JobStatus'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
