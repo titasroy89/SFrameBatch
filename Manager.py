@@ -23,12 +23,18 @@ import xml.sax
 class pidWatcher(object):
     def __init__(self,subInfo):
         self.pidStates = {}
+        ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo))]        
         try:
             #looking into condor_q for jobs that are idle, running or hold (HTC State 1,2 and 5)
-            proc_cQueue = subprocess.Popen(['condor_q','-json'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            proc_cQueue = subprocess.Popen(['condor_q']+ListOfPids+['-af:,','GlobalJobId','JobStatus'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
             cQueue_jsons = proc_cQueue.communicate()[0]
+            processes_json = []
             if cQueue_jsons:
-                processes_json = json.loads(cQueue_jsons)
+                for line in cQueue_jsons.split('\n'):
+                    if(',' not in line):
+                        continue
+                    GlobalJobId, JobStatus = line.strip().split(',')
+                    processes_json.append({'GlobalJobId':GlobalJobId,'JobStatus':int(JobStatus)})
                 self.parserWorked = True
             else:
                 self.parserWorked = False
@@ -39,7 +45,6 @@ class pidWatcher(object):
             print 'Going to wait for 5 minutes, lets see if condor_q will start to work again.'
             time.sleep(300)
             return
-        ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo))]
         if(any(i==-1 for i in ListOfPids)):
             self.parserWorked=False
         if self.parserWorked:
