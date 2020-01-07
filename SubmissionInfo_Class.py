@@ -18,7 +18,7 @@ class SubInfo(object):
         self.reachedBatch = [False]*numberOfFiles
         self.jobsRunning = [False]*numberOfFiles
         self.jobsDone = [False]*numberOfFiles
-        self.arrayPid = -1
+        self.arrayPid = ''
         self.resubmit = [resubmit]*numberOfFiles
         self.startingTime = 0
     def reset_resubmit(self,value):
