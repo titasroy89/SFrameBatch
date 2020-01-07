@@ -23,7 +23,12 @@ import xml.sax
 class pidWatcher(object):
     def __init__(self,subInfo):
         self.pidStates = {}
-        ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo)) if subInfo[k].arrayPid > 0 ]
+        ListOfPids = [subInfo[k].arrayPid for k in range(len(subInfo)) if len(subInfo[k].arrayPid) > 0 ]
+        # adding Pids of resubmitted jobs
+        for process in subInfo:
+            for pid in process.pids:
+                if process.arrayPid not in pid:
+                    ListOfPids.append(pid)
         if(len(ListOfPids)==0):
             return
         try:
@@ -47,14 +52,9 @@ class pidWatcher(object):
             print 'Going to wait for 5 minutes, lets see if condor_q will start to work again.'
             time.sleep(300)
             return
-        if(any(i==-1 for i in ListOfPids)):
+        if(any(len(i)==0 for i in ListOfPids)):
             self.parserWorked=False
         if self.parserWorked:
-            # adding Pids of resubmitted jobs
-            for process in subInfo:
-                for pid in process.pids:
-                    if process.arrayPid not in pid:
-                        ListOfPids.append(pid)
             for item in processes_json:
                 raw_id = item["GlobalJobId"]
                 jobid = raw_id.split("#")[1]
