@@ -71,11 +71,17 @@ def resub_script(name,workdir,header):
     else:
         condor_notification = ''
         
+    if('slc7' in os.getenv('SCRAM_ARCH')):
+        requirements_str = 'OpSysAndVer == "CentOS7"'
+    else:
+        requirements_str='OpSysAndVer == "SL6" || OpSysAndVer == "CentOS7"'
+
+
     submitfile = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submitfile.write(
 """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms" 
-requirements      =  OpSysAndVer == "SL6"
+requirements      =  """ + requirements_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
 # universe          =  local
