@@ -26,12 +26,17 @@ sframe_main $1
         condor_notification = 'Complete'
     else:
         condor_notification = ''
+
+    if('slc7' in os.getenv('SCRAM_ARCH')):
+        requirements_str = 'OpSysAndVer == "CentOS7"'
+    else:
+        requirements_str='OpSysAndVer == "SL6" || OpSysAndVer == "CentOS7"'
         
     submit_file = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submit_file.write(
         """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms" 
-requirements      =  OpSysAndVer == "SL6"
+requirements      =  """ + requirements_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
 # universe          =  local
