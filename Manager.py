@@ -288,14 +288,14 @@ class JobManager(object):
            self.stayAlive +=1  
         else:
             self.stayAlive = 0
-
-        print '%30s: %6s %6s %.6s'% ('Sample Name','Ready','#Files','[%]')
+        process_names_length = str(len(max([process.name for process in self.subInfo], key=len)))
+        print ('%'+process_names_length+'s: %6s %6s %.6s')% ('Sample Name','Ready','#Files','[%]')
         readyFiles =0
 
         for process in self.subInfo:
             status_message = ['\033[94m Working \033[0m','\033[92m Transferred \033[0m','Merging','Already Merged','\033[91m Failed \033[0m']
             #print process.status
-            print '%30s: %6i %6i %.3i'% (process.name, process.rootFileCounter,process.numberOfFiles, 100*float(process.rootFileCounter)/float(process.numberOfFiles)), status_message[process.status]
+            print ('%'+process_names_length+'s: %6i %6i %.3i')% (process.name, process.rootFileCounter,process.numberOfFiles, 100*float(process.rootFileCounter)/float(process.numberOfFiles)), status_message[process.status]
             readyFiles += process.rootFileCounter
         print 'Number of files: ',readyFiles,'/',self.totalFiles,'(%.3i)' % (100*(1-float(readyFiles)/float(self.totalFiles))),stayAliveArray[self.stayAlive],stayAliveArray[self.stayAlive]
         print '='*80
