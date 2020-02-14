@@ -30,6 +30,7 @@ class pidWatcher(object):
                 if process.arrayPid not in pid:
                     ListOfPids.append(pid)
         if(len(ListOfPids)==0):
+            self.parserWorked = False
             return
         try:
             #looking into condor_q for jobs that are idle, running or hold (HTC State 1,2 and 5)
