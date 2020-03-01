@@ -9,6 +9,9 @@ from tree_checker import *
 #from fhadd import fhadd
 
 
+SINGULARITY_IMG = os.path.expandvars("/nfs/dust/cms/user/$USER/slc6_latest.sif")
+
+
 def write_script(name,workdir,header,el7_worker=False):
     sframe_wrapper=open(workdir+'/sframe_wrapper.sh','w')
 
@@ -40,7 +43,13 @@ sframe_main $1
         worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
         if 'slc6' in os.getenv('SCRAM_ARCH'):
             # Run a SLC6 job on EL7 machine using singularity
-            worker_str += '+MySingularityImage="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/slc6:latest"\n'
+            if not os.path.isfile(SINGULARITY_IMG):
+                print "Please pull the SLC6 image to your NFS:"
+                print ""
+                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull /nfs/dust/cms/user/$USER/slc6_latest.sif docker://cmssw/slc6:latest'
+                print ""
+                raise RuntimeError("You should put your singularity image on /nfs, not /afs or /cvmfs.")
+            worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
 
     submit_file = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submit_file.write(
@@ -86,7 +95,7 @@ def resub_script(name,workdir,header,el7_worker=False):
         worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
         if 'slc6' in os.getenv('SCRAM_ARCH'):
             # Run a SLC6 job on EL7 machine using singularity
-            worker_str += '+MySingularityImage="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/slc6:latest"\n'
+            worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
 
     submitfile = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submitfile.write(
