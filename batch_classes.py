@@ -9,15 +9,19 @@ from tree_checker import *
 #from fhadd import fhadd
 
 
-def write_script(name,workdir,header):
+def write_script(name,workdir,header,el7_worker=False):
     sframe_wrapper=open(workdir+'/sframe_wrapper.sh','w')
+
+    # For some reason, we have to manually copy across certain environment
+    # variables, most notably LD_LIBRARY_PATH, and if running on singularity, PATH
     sframe_wrapper.write(
         """#!/bin/bash
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_STORED
+export PATH=$PATH_STORED
 sframe_main $1
         """)
     sframe_wrapper.close()
-    os.system('chmod u+x '+workdir+'/sframe_wrapper.sh')    
+    os.system('chmod u+x '+workdir+'/sframe_wrapper.sh')
     if (header.Notification == 'as'):
         condor_notification = 'Error'
     elif (header.Notification == 'n'):
@@ -27,20 +31,26 @@ sframe_main $1
     else:
         condor_notification = ''
 
-    if('slc7' in os.getenv('SCRAM_ARCH')):
-        requirements_str = 'OpSysAndVer == "CentOS7"'
-    else:
-        requirements_str='OpSysAndVer == "SL6" || OpSysAndVer == "CentOS7"'
-        
+    # Note that it automatically figures out which worker node arch you need
+    # based on submit node arch
+    # But here we can also override this, enforcing a EL7 worker, and if
+    # necessary load a SL6 singularity image
+    worker_str = ""
+    if el7_worker:
+        worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
+        if 'slc6' in os.getenv('SCRAM_ARCH'):
+            # Run a SLC6 job on EL7 machine using singularity
+            worker_str += '+MySingularityImage="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/slc6:latest"\n'
+
     submit_file = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submit_file.write(
         """#HTC Submission File for SFrameBatch
-# +MyProject        =  "af-cms" 
-requirements      =  """ + requirements_str + """
+# +MyProject        =  "af-cms"
+""" + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
 # universe          =  local
-# request_cpus      =  8 
+# request_cpus      =  8
 notification      = """+condor_notification+"""
 notify_user       = """+header.Mail+"""
 initialdir        = """+workdir+"""
@@ -52,7 +62,7 @@ RequestMemory     = """+header.RAM+"""G
 RequestDisk       = """+header.DISK+"""G
 #You need to set up sframe
 getenv            = True
-environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""""
+environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""" PATH_STORED="""+os.environ.get('PATH')+""""
 JobBatchName      = """+name+"""
 executable        = """+workdir+"""/sframe_wrapper.sh
 MyIndex           = $(Process) + 1
@@ -60,8 +70,8 @@ fileindex         = $INT(MyIndex,%d)
 arguments         = """+name+"""_$(fileindex).xml
 """)
     submit_file.close()
-        
-def resub_script(name,workdir,header):    
+
+def resub_script(name,workdir,header,el7_worker=False):
     if (header.Notification == 'as'):
         condor_notification = 'Error'
     elif (header.Notification == 'n'):
@@ -70,22 +80,23 @@ def resub_script(name,workdir,header):
         condor_notification = 'Complete'
     else:
         condor_notification = ''
-        
-    if('slc7' in os.getenv('SCRAM_ARCH')):
-        requirements_str = 'OpSysAndVer == "CentOS7"'
-    else:
-        requirements_str='OpSysAndVer == "SL6" || OpSysAndVer == "CentOS7"'
 
+    worker_str = ""
+    if el7_worker:
+        worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
+        if 'slc6' in os.getenv('SCRAM_ARCH'):
+            # Run a SLC6 job on EL7 machine using singularity
+            worker_str += '+MySingularityImage="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/slc6:latest"\n'
 
     submitfile = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submitfile.write(
 """#HTC Submission File for SFrameBatch
-# +MyProject        =  "af-cms" 
-requirements      =  """ + requirements_str + """
+# +MyProject        =  "af-cms"
+""" + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
 # universe          =  local
-# request_cpus      =  8 
+# request_cpus      =  8
 notification      = """+condor_notification+"""
 notify_user       = """+header.Mail+"""
 initialdir        = """+workdir+"""
@@ -98,7 +109,7 @@ RequestMemory     = 8G
 RequestDisk       = """+header.DISK+"""G
 #You need to set up sframe
 getenv            = True
-environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""""
+environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""" PATH_STORED="""+os.environ.get('PATH')+""""
 JobBatchName      = """+name+"""
 executable        = """+workdir+"""/sframe_wrapper.sh
 arguments         = """+name+""".xml
@@ -113,7 +124,7 @@ def submit_qsub(NFiles,Stream,name,workdir):
     if not os.path.exists(Stream):
         os.makedirs(Stream)
         print Stream+' has been created'
- 
+
     #call(['qsub'+' -t 1-'+str(NFiles)+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'], shell=True)
     # proc_qstat = Popen(['condor_qsub'+' -t 1-'+str(NFiles)+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'],shell=True,stdout=PIPE)
     # return (proc_qstat.communicate()[0].split()[2]).split('.')[0]
@@ -121,9 +132,9 @@ def submit_qsub(NFiles,Stream,name,workdir):
     return (proc_qstat.communicate()[0].split()[7]).split('.')[0]
 
 
-def resubmit(Stream,name,workdir,header):
+def resubmit(Stream,name,workdir,header,el7_worker):
     #print Stream ,name
-    resub_script(name,workdir,header)	
+    resub_script(name,workdir,header,el7_worker)
     if not os.path.exists(Stream):
         os.makedirs(Stream)
         print Stream+' has been created'
@@ -170,6 +181,6 @@ def add_histos(directory,name,NFiles,workdir,outputTree, onlyhists,outputdir):
         proc = Popen([str(command_string+directory+name+'.root '+source_files+' > '+outputdir+'/hadd.log')], shell=True, stdout=FNULL, stderr=FNULL)
     else:
         print 'Nothing to merge for',name+'.root'
-    return proc 
+    return proc
 
 
