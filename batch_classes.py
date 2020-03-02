@@ -35,9 +35,11 @@ sframe_main $1
         condor_notification = ''
 
     # Note that it automatically figures out which worker node arch you need
-    # based on submit node arch
-    # But here we can also override this, enforcing a EL7 worker, and if
-    # necessary load a SL6 singularity image
+    # based on submit node arch.
+    # However we don't always want this.
+    # We can enforce a EL7 worker, and if necessary load a SL6 singularity image.
+    # Or we just take the desired worker node arch from SCRAM_ARCH
+    # (such that one can submit SLC6 worker node jobs from a EL7 node)
     worker_str = ""
     if el7_worker:
         worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
@@ -50,6 +52,12 @@ sframe_main $1
                 print ""
                 raise RuntimeError("You should put your singularity image on /nfs, not /afs or /cvmfs.")
             worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
+    else:
+        # Choose worker node arch based on SCRAM_ARCH (not login node arch)
+        if 'slc7' in os.getenv('SCRAM_ARCH'):
+            worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )'
+        else:
+            worker_str = 'Requirements = ( OpSysAndVer == "SL6" )'
 
     submit_file = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submit_file.write(
@@ -96,6 +104,11 @@ def resub_script(name,workdir,header,el7_worker=False):
         if 'slc6' in os.getenv('SCRAM_ARCH'):
             # Run a SLC6 job on EL7 machine using singularity
             worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
+    else:
+        if 'slc7' in os.getenv('SCRAM_ARCH'):
+            worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )'
+        else:
+            worker_str = 'Requirements = ( OpSysAndVer == "SL6" )'
 
     submitfile = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submitfile.write(
