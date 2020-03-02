@@ -103,6 +103,12 @@ def resub_script(name,workdir,header,el7_worker=False):
         worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
         if 'slc6' in os.getenv('SCRAM_ARCH'):
             # Run a SLC6 job on EL7 machine using singularity
+            if not os.path.isfile(SINGULARITY_IMG):
+                print "Please pull the SLC6 image to your NFS:"
+                print ""
+                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest'
+                print ""
+                raise RuntimeError("Cannot find image, %s. Do not use one from /afs or /cvmfs." % SINGULARITY_IMG)
             worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
     else:
         if 'slc7' in os.getenv('SCRAM_ARCH'):
