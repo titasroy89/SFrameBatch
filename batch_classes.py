@@ -17,10 +17,11 @@ def write_script(name,workdir,header,el7_worker=False):
 
     # For some reason, we have to manually copy across certain environment
     # variables, most notably LD_LIBRARY_PATH, and if running on singularity, PATH
+    # Note that we need the existing PATH, otherwise it loses basename, sed, etc
     sframe_wrapper.write(
         """#!/bin/bash
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_STORED
-export PATH=$PATH_STORED
+export PATH=$PATH_STORED:$PATH
 sframe_main $1
         """)
     sframe_wrapper.close()
