@@ -48,9 +48,9 @@ sframe_main $1
             if not os.path.isfile(SINGULARITY_IMG):
                 print "Please pull the SLC6 image to your NFS:"
                 print ""
-                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull /nfs/dust/cms/user/$USER/slc6_latest.sif docker://cmssw/slc6:latest'
+                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest'
                 print ""
-                raise RuntimeError("You should put your singularity image on /nfs, not /afs or /cvmfs.")
+                raise RuntimeError("Cannot find image, %s. Do not use one from /afs or /cvmfs." % SINGULARITY_IMG)
             worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
     else:
         # Choose worker node arch based on SCRAM_ARCH (not login node arch)
