@@ -102,6 +102,10 @@ def SFrameBatchMain(input_options):
                       dest="xmldatabaseDir",
                       help="This command creates from a data file the new sframe_main xml file calculating the lumi from the number of events and a given cross section. You can specify the number of events (weighted). Else it will try to find the number of events at the end of the xml Files (stored in the dateset directory) or use a small python script to read the number of entries from the trees. If it has to read the number of entries from the trees you need to specify how many cores it should use and also the method to be used. True == Fast / False == weights. Example can be found as DatabaseExample. USERCONFIG is not filled and needs to be done manually. Usage: sframe_batch --XMLDatabase DATABASE_DIR FILENAME_TO_STORE."
                       )
+    parser.add_option("--el7worker",
+                      action='store_true',
+                      help='Force job to be run on EL7 node. '
+                      'If SLC6 environment, will use singularity.')
 
 
     (options, args) = parser.parse_args(input_options)

@@ -9,15 +9,34 @@ from tree_checker import *
 #from fhadd import fhadd
 
 
-def write_script(name,workdir,header):
+SINGULARITY_IMG = os.path.expandvars("/nfs/dust/cms/user/$USER/slc6_latest.sif")
+
+
+def write_script(name,workdir,header,el7_worker=False):
     sframe_wrapper=open(workdir+'/sframe_wrapper.sh','w')
+
+    # For some reason, we have to manually copy across certain environment
+    # variables, most notably LD_LIBRARY_PATH, and if running on singularity, PATH
+    # Note that we need the existing PATH, otherwise it loses basename, sed, etc
+    # We also need to specify SFRAME_TEMP_DIR ourselves; the default on /tmp
+    # doesn't work when running within singularity (don't know why),
+    # so we need to put it somewhere else.
+    # Note that SFrame will make it's own uniquely named subdirectory
+    # within SFRAME_TEMP_DIR and will clean it up after the job has ended
+    # (set OutputLevel="DEBUG" to see what it does)
+    tmp_dir = os.path.abspath(workdir)
+    if not os.path.isdir(tmp_dir):
+        os.makedirs(tmp_dir)
+
     sframe_wrapper.write(
         """#!/bin/bash
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_STORED
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_STORED:$LD_LIBRARY_PATH
+export PATH=$PATH_STORED:$PATH
+export SFRAME_TEMP_DIR="""+tmp_dir+"""
 sframe_main $1
         """)
     sframe_wrapper.close()
-    os.system('chmod u+x '+workdir+'/sframe_wrapper.sh')    
+    os.system('chmod u+x '+workdir+'/sframe_wrapper.sh')
     if (header.Notification == 'as'):
         condor_notification = 'Error'
     elif (header.Notification == 'n'):
@@ -27,20 +46,40 @@ sframe_main $1
     else:
         condor_notification = ''
 
-    if('slc7' in os.getenv('SCRAM_ARCH')):
-        requirements_str = 'OpSysAndVer == "CentOS7"'
+    # Note that it automatically figures out which worker node arch you need
+    # based on submit node arch.
+    # However we don't always want this.
+    # We can enforce a EL7 worker, and if necessary load a SL6 singularity image.
+    # Or we just take the desired worker node arch from SCRAM_ARCH
+    # (such that one can submit SLC6 worker node jobs from a EL7 node)
+    worker_str = ""
+    if el7_worker:
+        worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
+        if 'slc6' in os.getenv('SCRAM_ARCH'):
+            # Run a SLC6 job on EL7 machine using singularity
+            if not os.path.isfile(SINGULARITY_IMG):
+                print "Please pull the SLC6 image to your NFS:"
+                print ""
+                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest'
+                print ""
+                raise RuntimeError("Cannot find image, %s. Do not use one from /afs or /cvmfs." % SINGULARITY_IMG)
+            worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
     else:
-        requirements_str='OpSysAndVer == "SL6" || OpSysAndVer == "CentOS7"'
-        
+        # Choose worker node arch based on SCRAM_ARCH (not login node arch)
+        if 'slc7' in os.getenv('SCRAM_ARCH'):
+            worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )'
+        else:
+            worker_str = 'Requirements = ( OpSysAndVer == "SL6" )'
+
     submit_file = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submit_file.write(
         """#HTC Submission File for SFrameBatch
-# +MyProject        =  "af-cms" 
-requirements      =  """ + requirements_str + """
+# +MyProject        =  "af-cms"
+""" + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
 # universe          =  local
-# request_cpus      =  8 
+# request_cpus      =  8
 notification      = """+condor_notification+"""
 notify_user       = """+header.Mail+"""
 initialdir        = """+workdir+"""
@@ -52,7 +91,7 @@ RequestMemory     = """+header.RAM+"""G
 RequestDisk       = """+header.DISK+"""G
 #You need to set up sframe
 getenv            = True
-environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""""
+environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""" PATH_STORED="""+os.environ.get('PATH')+""""
 JobBatchName      = """+name+"""
 executable        = """+workdir+"""/sframe_wrapper.sh
 MyIndex           = $(Process) + 1
@@ -60,8 +99,8 @@ fileindex         = $INT(MyIndex,%d)
 arguments         = """+name+"""_$(fileindex).xml
 """)
     submit_file.close()
-        
-def resub_script(name,workdir,header):    
+
+def resub_script(name,workdir,header,el7_worker=False):
     if (header.Notification == 'as'):
         condor_notification = 'Error'
     elif (header.Notification == 'n'):
@@ -70,22 +109,34 @@ def resub_script(name,workdir,header):
         condor_notification = 'Complete'
     else:
         condor_notification = ''
-        
-    if('slc7' in os.getenv('SCRAM_ARCH')):
-        requirements_str = 'OpSysAndVer == "CentOS7"'
-    else:
-        requirements_str='OpSysAndVer == "SL6" || OpSysAndVer == "CentOS7"'
 
+    worker_str = ""
+    if el7_worker:
+        worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
+        if 'slc6' in os.getenv('SCRAM_ARCH'):
+            # Run a SLC6 job on EL7 machine using singularity
+            if not os.path.isfile(SINGULARITY_IMG):
+                print "Please pull the SLC6 image to your NFS:"
+                print ""
+                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest'
+                print ""
+                raise RuntimeError("Cannot find image, %s. Do not use one from /afs or /cvmfs." % SINGULARITY_IMG)
+            worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
+    else:
+        if 'slc7' in os.getenv('SCRAM_ARCH'):
+            worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )'
+        else:
+            worker_str = 'Requirements = ( OpSysAndVer == "SL6" )'
 
     submitfile = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
     submitfile.write(
 """#HTC Submission File for SFrameBatch
-# +MyProject        =  "af-cms" 
-requirements      =  """ + requirements_str + """
+# +MyProject        =  "af-cms"
+""" + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
 # universe          =  local
-# request_cpus      =  8 
+# request_cpus      =  8
 notification      = """+condor_notification+"""
 notify_user       = """+header.Mail+"""
 initialdir        = """+workdir+"""
@@ -98,7 +149,7 @@ RequestMemory     = 8G
 RequestDisk       = """+header.DISK+"""G
 #You need to set up sframe
 getenv            = True
-environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""""
+environment       = "LD_LIBRARY_PATH_STORED="""+os.environ.get('LD_LIBRARY_PATH')+""" PATH_STORED="""+os.environ.get('PATH')+""""
 JobBatchName      = """+name+"""
 executable        = """+workdir+"""/sframe_wrapper.sh
 arguments         = """+name+""".xml
@@ -113,7 +164,7 @@ def submit_qsub(NFiles,Stream,name,workdir):
     if not os.path.exists(Stream):
         os.makedirs(Stream)
         print Stream+' has been created'
- 
+
     #call(['qsub'+' -t 1-'+str(NFiles)+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'], shell=True)
     # proc_qstat = Popen(['condor_qsub'+' -t 1-'+str(NFiles)+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'],shell=True,stdout=PIPE)
     # return (proc_qstat.communicate()[0].split()[2]).split('.')[0]
@@ -121,9 +172,9 @@ def submit_qsub(NFiles,Stream,name,workdir):
     return (proc_qstat.communicate()[0].split()[7]).split('.')[0]
 
 
-def resubmit(Stream,name,workdir,header):
+def resubmit(Stream,name,workdir,header,el7_worker):
     #print Stream ,name
-    resub_script(name,workdir,header)	
+    resub_script(name,workdir,header,el7_worker)
     if not os.path.exists(Stream):
         os.makedirs(Stream)
         print Stream+' has been created'
@@ -170,6 +221,6 @@ def add_histos(directory,name,NFiles,workdir,outputTree, onlyhists,outputdir):
         proc = Popen([str(command_string+directory+name+'.root '+source_files+' > '+outputdir+'/hadd.log')], shell=True, stdout=FNULL, stderr=FNULL)
     else:
         print 'Nothing to merge for',name+'.root'
-    return proc 
+    return proc
 
 
