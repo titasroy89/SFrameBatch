@@ -33,7 +33,6 @@ def write_script(name,workdir,header,el7_worker=False):
 export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_STORED:$LD_LIBRARY_PATH
 export PATH=$PATH_STORED:$PATH
 export SFRAME_TEMP_DIR="""+tmp_dir+"""
-mkdir -p ${SFRAME_TEMP_DIR}
 sframe_main $1
         """)
     sframe_wrapper.close()
