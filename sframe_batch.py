@@ -145,7 +145,7 @@ def SFrameBatchMain(input_options):
         os.system('ln -sf %s/JobConfig.dtd .' % scriptpath)
 
     #print xmlfile, os.getcwd
-    proc_xmllint = subprocess.Popen(['xmllint','--noent',xmlfile],stdout=subprocess.PIPE)
+    proc_xmllint = subprocess.Popen(['xmllint','--noent','--dtdattr',xmlfile],stdout=subprocess.PIPE)
     xmlfile_strio = StringIO.StringIO(proc_xmllint.communicate()[0])
     sax_parser = xml.sax.make_parser()
     xmlparsed = parse(xmlfile_strio,sax_parser)
