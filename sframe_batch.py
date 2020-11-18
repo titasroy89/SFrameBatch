@@ -104,12 +104,14 @@ def SFrameBatchMain(input_options):
                       )
     parser.add_option("--el7worker",
                       action='store_true',
-                      help='Force job to be run on EL7 node. '
-                      'If SLC6 environment, will use singularity.')
-
+                      help='Use singularity to run inside SL6-container on EL7-Nodes.')
+    parser.add_option("--sl6container",
+                      action='store_true',
+                      help='Use singularity to run inside SL6-container on EL7-Nodes.')
 
     (options, args) = parser.parse_args(input_options)
-    
+    if(options.el7worker):
+        options.sl6container = True        
     start = timeit.default_timer()
 
     if 'missing_files.txt' in args[0]:
