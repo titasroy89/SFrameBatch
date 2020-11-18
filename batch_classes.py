@@ -36,7 +36,8 @@ sframe_main $1
     else:
         condor_notification = ''
 
-    if(os.path.isfile(workdir+'/CondorSubmitfile_'+name+'.submit')):
+    condor_submitfile_name = workdir+'/CondorSubmitfile_'+name+'.submit'
+    if(os.path.isfile(condor_submitfile_name)):
         return
 
     #Make sure user does not try to submit jobs to the EL7 nodes without singularity from a environment with a SL6 SCRAM_ARCH
@@ -55,7 +56,7 @@ sframe_main $1
         worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
         worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
 
-    submit_file = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
+    submit_file = open(condor_submitfile_name,'w')
     submit_file.write(
         """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms"
@@ -95,7 +96,8 @@ def resub_script(name,workdir,header,sl6_container=False):
     else:
         condor_notification = ''
 
-    if(os.path.isfile(workdir+'/CondorSubmitfile_'+name+'.submit')):
+    condor_resubmitfile_name = workdir+'/CondorSubmitfile_'+name+'.submit'
+    if(os.path.isfile(condor_resubmitfile_name)):
         return
 
     #Make sure user does not try to submit jobs to the EL7 nodes without singularity from a environment with a SL6 SCRAM_ARCH
@@ -114,7 +116,7 @@ def resub_script(name,workdir,header,sl6_container=False):
         worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
         worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
 
-    submitfile = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
+    submitfile = open(condor_resubmitfile_name,'w')
     submitfile.write(
 """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms"
