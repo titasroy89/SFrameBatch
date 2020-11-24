@@ -42,7 +42,7 @@ sframe_main $1
 
     #Make sure user does not try to submit jobs to the EL7 nodes without singularity from a environment with a SL6 SCRAM_ARCH
     if 'slc6' in os.getenv("SCRAM_ARCH") and not sl6_container:
-        raise EnvironmentError("\033[91mSCRAM_ARCH shows this environment is setup for SL6. You tried to submit to EL7 nodes without using a singularity.\n Make sure to use --sl6container to run these jobs inside singularity container.\033[0m")
+        raise EnvironmentError("\033[91mSCRAM_ARCH shows this environment is setup for SL6. You tried to submit to EL7 nodes without using a singularity container.\n Make sure to use --sl6container to run these jobs inside singularity container.\033[0m")
 
     worker_str = ""
     # Run a SLC6 job on EL7 machine using singularity
@@ -102,7 +102,7 @@ def resub_script(name,workdir,header,sl6_container=False):
 
     #Make sure user does not try to submit jobs to the EL7 nodes without singularity from a environment with a SL6 SCRAM_ARCH
     if 'slc6' in os.getenv("SCRAM_ARCH") and not sl6_container:
-        raise EnvironmentError("\033[91mSCRAM_ARCH shows this environment is setup for SL6. You tried to submit to EL7 nodes without using a singularity.\n Make sure to use --sl6container to run these jobs inside singularity container.\033[0m")
+        raise EnvironmentError("\033[91mSCRAM_ARCH shows this environment is setup for SL6. You tried to submit to EL7 nodes without using a singularity container.\n Make sure to use --sl6container to run these jobs inside singularity container.\033[0m")
     
     worker_str = ""
     # Run a SLC6 job on EL7 machine using singularity
