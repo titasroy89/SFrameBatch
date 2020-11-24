@@ -111,7 +111,7 @@ class JobManager(object):
         self.keepGoing = options.keepGoing
         self.exitOnQuestion = options.exitOnQuestion
         self.outputstream = self.workdir+'/Stream_'
-        self.el7_worker = options.el7worker  # enforce running on EL7 mahcine
+        self.sl6_container = options.sl6container  # run code in SL6 singularity container
 
     #read xml file and do the magic 
     def process_jobs(self,InputData,Job):
@@ -134,7 +134,7 @@ class JobManager(object):
             else:
                 self.totalFiles += self.subInfo[-1].numberOfFiles
                 self.subInfo[-1].reset_resubmit(self.header.AutoResubmit) #Reset the retries every time you start
-                write_script(processName[0],self.workdir,self.header,self.el7_worker) #Write the scripts you need to start the submission
+                write_script(processName[0],self.workdir,self.header,self.sl6_container) #Write the scripts you need to start the submission
         gc.enable()
     #submit the jobs to the batch as array job
     #the used function should soon return the pid of the job for killing and knowing if something failed
@@ -166,7 +166,7 @@ class JobManager(object):
                             exit(-1)
                     ask = False
                 if batchstatus != 1:
-                    process.pids[it-1] = resubmit(self.outputstream+process.name,process.name+'_'+str(it),self.workdir,self.header,self.el7_worker)
+                    process.pids[it-1] = resubmit(self.outputstream+process.name,process.name+'_'+str(it),self.workdir,self.header,self.sl6_container)
                     #print 'Resubmitted job',process.name,it, 'pid', process.pids[it-1]
                     self.printString.append('Resubmitted job '+process.name+' '+str(it)+' pid '+str(process.pids[it-1]))
                     if process.status != 0: process.status =0
@@ -226,7 +226,7 @@ class JobManager(object):
                         ask = False
                     #print 'resubmitting', process.name+'_'+str(it+1),es not Found',process.notFoundCounter[it], 'pid', process.pids[it], process.arrayPid, 'task',it+1
                     waitingFlag_autoresub = True
-                    process.pids[it] = resubmit(self.outputstream+process.name,process.name+'_'+str(it+1),self.workdir,self.header,self.el7_worker)
+                    process.pids[it] = resubmit(self.outputstream+process.name,process.name+'_'+str(it+1),self.workdir,self.header,self.sl6_container)
                     process.status = 0
                     #print 'AutoResubmitted job',process.name,it, 'pid', process.pids[it]
                     self.printString.append('File Found '+str(os.path.exists(filename)))

@@ -12,7 +12,7 @@ from tree_checker import *
 SINGULARITY_IMG = os.path.expandvars("/nfs/dust/cms/user/$USER/slc6_latest.sif")
 
 
-def write_script(name,workdir,header,el7_worker=False):
+def write_script(name,workdir,header,sl6_container=False):
     sframe_wrapper=open(workdir+'/sframe_wrapper.sh','w')
 
     # For some reason, we have to manually copy across certain environment
@@ -36,36 +36,31 @@ sframe_main $1
     else:
         condor_notification = ''
 
-    # Note that it automatically figures out which worker node arch you need
-    # based on submit node arch.
-    # However we don't always want this.
-    # We can enforce a EL7 worker, and if necessary load a SL6 singularity image.
-    # Or we just take the desired worker node arch from SCRAM_ARCH
-    # (such that one can submit SLC6 worker node jobs from a EL7 node)
-    worker_str = ""
-    if el7_worker:
-        worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
-        if 'slc6' in os.getenv('SCRAM_ARCH'):
-            # Run a SLC6 job on EL7 machine using singularity
-            if not os.path.isfile(SINGULARITY_IMG):
-                print "Please pull the SLC6 image to your NFS:"
-                print ""
-                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest'
-                print ""
-                raise RuntimeError("Cannot find image, %s. Do not use one from /afs or /cvmfs." % SINGULARITY_IMG)
-            worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
-            worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
-    else:
-        # Choose worker node arch based on SCRAM_ARCH (not login node arch)
-        if 'slc7' in os.getenv('SCRAM_ARCH'):
-            worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )'
-        else:
-            worker_str = 'Requirements = ( OpSysAndVer == "SL6" )'
+    condor_submitfile_name = workdir+'/CondorSubmitfile_'+name+'.submit'
+    if(os.path.isfile(condor_submitfile_name)):
+        return
 
-    submit_file = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
+    #Make sure user does not try to submit jobs to the EL7 nodes without singularity from a environment with a SL6 SCRAM_ARCH
+    if 'slc6' in os.getenv("SCRAM_ARCH") and not sl6_container:
+        raise EnvironmentError("\033[91mSCRAM_ARCH shows this environment is setup for SL6. You tried to submit to EL7 nodes without using a singularity container.\n Make sure to use --sl6container to run these jobs inside singularity container.\033[0m")
+
+    worker_str = ""
+    # Run a SLC6 job on EL7 machine using singularity
+    if sl6_container:
+        if not os.path.isfile(SINGULARITY_IMG):
+            print '\033[93m',"Please pull the SLC6 image to your NFS:",'\033[0m'
+            print ""
+            print '\033[93m','SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest','\033[0m'
+            print ""
+            raise RuntimeError("\033[91mCannot find image, %s. Do not use one from /afs or /cvmfs.\033[0m" % SINGULARITY_IMG)
+        worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
+        worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
+
+    submit_file = open(condor_submitfile_name,'w')
     submit_file.write(
         """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms"
+Requirements = ( OpSysAndVer == "CentOS7" )
 """ + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
@@ -91,7 +86,7 @@ arguments         = """+name+"""_$(fileindex).xml
 """)
     submit_file.close()
 
-def resub_script(name,workdir,header,el7_worker=False):
+def resub_script(name,workdir,header,sl6_container=False):
     if (header.Notification == 'as'):
         condor_notification = 'Error'
     elif (header.Notification == 'n'):
@@ -101,28 +96,31 @@ def resub_script(name,workdir,header,el7_worker=False):
     else:
         condor_notification = ''
 
-    worker_str = ""
-    if el7_worker:
-        worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )\n'
-        if 'slc6' in os.getenv('SCRAM_ARCH'):
-            # Run a SLC6 job on EL7 machine using singularity
-            if not os.path.isfile(SINGULARITY_IMG):
-                print "Please pull the SLC6 image to your NFS:"
-                print ""
-                print 'SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest'
-                print ""
-                raise RuntimeError("Cannot find image, %s. Do not use one from /afs or /cvmfs." % SINGULARITY_IMG)
-            worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
-    else:
-        if 'slc7' in os.getenv('SCRAM_ARCH'):
-            worker_str = 'Requirements = ( OpSysAndVer == "CentOS7" )'
-        else:
-            worker_str = 'Requirements = ( OpSysAndVer == "SL6" )'
+    condor_resubmitfile_name = workdir+'/CondorSubmitfile_'+name+'.submit'
+    if(os.path.isfile(condor_resubmitfile_name)):
+        return
 
-    submitfile = open(workdir+'/CondorSubmitfile_'+name+'.submit','w')
+    #Make sure user does not try to submit jobs to the EL7 nodes without singularity from a environment with a SL6 SCRAM_ARCH
+    if 'slc6' in os.getenv("SCRAM_ARCH") and not sl6_container:
+        raise EnvironmentError("\033[91mSCRAM_ARCH shows this environment is setup for SL6. You tried to submit to EL7 nodes without using a singularity container.\n Make sure to use --sl6container to run these jobs inside singularity container.\033[0m")
+    
+    worker_str = ""
+    # Run a SLC6 job on EL7 machine using singularity
+    if sl6_container:
+        if not os.path.isfile(SINGULARITY_IMG):
+            print '\033[93m',"Please pull the SLC6 image to your NFS:",'\033[0m'
+            print ""
+            print '\033[93m','SINGULARITY_CACHEDIR="/nfs/dust/cms/user/$USER/singularity" singularity pull', SINGULARITY_IMG, 'docker://cmssw/slc6:latest','\033[0m'
+            print ""
+            raise RuntimeError("\033[91mCannot find image, %s. Do not use one from /afs or /cvmfs.\033[0m" % SINGULARITY_IMG)
+        worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
+        worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
+
+    submitfile = open(condor_resubmitfile_name,'w')
     submitfile.write(
 """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms"
+Requirements = ( OpSysAndVer == "CentOS7" )
 """ + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
@@ -163,9 +161,9 @@ def submit_qsub(NFiles,Stream,name,workdir):
     return (proc_qstat.communicate()[0].split()[7]).split('.')[0]
 
 
-def resubmit(Stream,name,workdir,header,el7_worker):
+def resubmit(Stream,name,workdir,header,sl6_container):
     #print Stream ,name
-    resub_script(name,workdir,header,el7_worker)
+    resub_script(name,workdir,header,sl6_container)
     if not os.path.exists(Stream):
         os.makedirs(Stream)
         print Stream+' has been created'
