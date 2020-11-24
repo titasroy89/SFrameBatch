@@ -110,8 +110,13 @@ def SFrameBatchMain(input_options):
                       help='Use singularity to run inside SL6-container on EL7-Nodes.')
 
     (options, args) = parser.parse_args(input_options)
+
     if(options.el7worker):
-        options.sl6container = True        
+        options.sl6container = True
+        import warnings
+        warnings.simplefilter("once", DeprecationWarning)
+        warnings.warn("\033[93m\nYou are using the option --el7worker, which will be removed soon. Although this still works, you should consider to switch to the option --sl6container, if you want to run jobs inside a SL6-container on EL7 HTCondor machines using singularity.\n\033[0m", DeprecationWarning)
+        
     start = timeit.default_timer()
 
     if 'missing_files.txt' in args[0]:
