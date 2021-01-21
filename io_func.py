@@ -160,6 +160,12 @@ def get_number_of_events(Job, Version, atleastOneEvent = False):
     NEvents = 0
     if len(InputData.io_list.FileInfoList[:])<5:
         atleastOneEvent=False
+    if ( any(['root://' in entry[entry.index("FileName")+1] for entry in InputData.io_list.FileInfoList[:]]) and os.environ.get("X509_USER_PROXY","")==""):
+        print "\033[93m You are trying to access at least one file via xrootd and did not set X509_USER_PROXY."
+        print "Before executing voms-proxy-init, you need to set this variable to somewhere suitable, e.g.:"
+        print "export X509_USER_PROXY=$HOME/X509UserProxy.pem"
+        print "HTCondor will pick up the full environment including this and will be able to access the files via xrootd.\033[0m"
+
     for entry in InputData.io_list.FileInfoList[:]:
             for name in entry:
                 if name.endswith('.root'):
