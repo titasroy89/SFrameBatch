@@ -163,7 +163,7 @@ def get_number_of_events(Job, Version, atleastOneEvent = False):
     for entry in InputData.io_list.FileInfoList[:]:
             for name in entry:
                 if name.endswith('.root'):
-                    f = ROOT.TFile(name)
+                    f = ROOT.TFile.Open(name)
                     try:
                         n = f.Get(str(InputData.io_list.InputTree[2])).GetEntriesFast()
                         if n < 1:
