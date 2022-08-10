@@ -14,6 +14,7 @@ import math
 import time
 import ROOT
 import copy
+import warnings
 
 ROOT.PyConfig.IgnoreCommandLineOptions = True
 
@@ -169,8 +170,8 @@ def get_number_of_events(Job, Version, atleastOneEvent = False):
     for entry in InputData.io_list.FileInfoList[:]:
             for name in entry:
                 if name.strip().endswith('.root'):
-                    f = ROOT.TFile.Open(name)
                     try:
+                        f = ROOT.TFile.Open(name)
                         n = f.Get(str(InputData.io_list.InputTree[2])).GetEntriesFast()
                         if n < 1:
                             InputData.io_list.FileInfoList.remove(entry)
@@ -178,11 +179,10 @@ def get_number_of_events(Job, Version, atleastOneEvent = False):
                         else:
                             NEvents += n
                             if atleastOneEvent: 
-                                f.Close()
                                 return 1
+                        f.Close()
                     except:
-                        print name,'does not contain an InputTree'
-                    f.Close()
+                        warnings.warn('\033[93m \n File:\n'+str(name) + '\ndoes not contain an InputTree or file is zombie/broken!\n\033[0m')
     return NEvents
 
 def write_all_xml(path,datasetName,header,Job,workdir):
