@@ -21,8 +21,22 @@ def write_script(name,workdir,header,sl6_container=False):
 
     sframe_wrapper.write(
         """#!/bin/bash
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_STORED:$LD_LIBRARY_PATH
-export PATH=$PATH_STORED:$PATH
+cat /etc/redhat-release
+echo $APPTAINER_CONTAINER
+#source /cvmfs/cms.cern.ch/cmsset_default.sh
+#cd /nfs/dust/cms/user/titasroy/Ac_UL/CMSSW_10_6_28
+#cmsenv
+#source /nfs/dust/cms/user/titasroy/Ac_UL/SFrame/setup.sh
+#cd -
+#export LD_LIBRARY_PATH=$LD_LIBRARY_PATH_STORED:$LD_LIBRARY_PATH
+#export PATH=$PATH_STORED:$PATH
+WORKDIR=$PWD
+source /nfs/dust/cms/user/titasroy/setup_UL_Ac.sh
+cd $WORKDIR
+# echo "**** BEGIN ENV"
+# printenv
+# echo "**** END ENV"
+#ldd $(which sframe_main)
 sframe_main $1
         """)
     sframe_wrapper.close()
@@ -55,12 +69,14 @@ sframe_main $1
             raise RuntimeError("\033[91mCannot find image, %s. Do not use one from /afs or /cvmfs.\033[0m" % SINGULARITY_IMG)
         worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
         worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
-
+    worker_str += '+MySingularityImage="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/el7:x86_64"\n'
+    worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
     submit_file = open(condor_submitfile_name,'w')
     submit_file.write(
         """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms"
-Requirements = ( OpSysAndVer == "CentOS7" )
+#Requirements = ( OpSysAndVer == "CentOS7" )
+#Requirements = ( OpSysAndVer == "AlmaLinux9" )
 """ + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
@@ -115,12 +131,13 @@ def resub_script(name,workdir,header,sl6_container=False):
             raise RuntimeError("\033[91mCannot find image, %s. Do not use one from /afs or /cvmfs.\033[0m" % SINGULARITY_IMG)
         worker_str += '+MySingularityImage="'+SINGULARITY_IMG+'"\n'
         worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
-
+    worker_str += '+MySingularityImage="/cvmfs/unpacked.cern.ch/registry.hub.docker.com/cmssw/el7:x86_64"\n'
+    worker_str += '+MySingularityArgs="--bind /tmp:/tmp"\n'
     submitfile = open(condor_resubmitfile_name,'w')
     submitfile.write(
 """#HTC Submission File for SFrameBatch
 # +MyProject        =  "af-cms"
-Requirements = ( OpSysAndVer == "CentOS7" )
+# Requirements = ( OpSysAndVer == "AlmaLinux9" )
 """ + worker_str + """
 universe          = vanilla
 # #Running in local mode with 8 cpu slots
@@ -157,8 +174,13 @@ def submit_qsub(NFiles,Stream,name,workdir):
     #call(['qsub'+' -t 1-'+str(NFiles)+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'], shell=True)
     # proc_qstat = Popen(['condor_qsub'+' -t 1-'+str(NFiles)+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'],shell=True,stdout=PIPE)
     # return (proc_qstat.communicate()[0].split()[2]).split('.')[0]
-    proc_qstat = Popen(['condor_submit'+' '+workdir+'/CondorSubmitfile_'+name+'.submit'+' -a "Stream='+Stream.split('/')[1]+'" -a "queue '+str(NFiles)+'"'],shell=True,stdout=PIPE)
-    return (proc_qstat.communicate()[0].split()[7]).split('.')[0]
+    cmd = ['condor_submit'+' '+workdir+'/CondorSubmitfile_'+name+'.submit'+' -a \'"Stream='+Stream.split('/')[1]+'"\' -a \'"queue '+str(NFiles)+'"\'']
+    # print cmd
+    proc_qstat = Popen(cmd,shell=True,stdout=PIPE)
+    
+    output = proc_qstat.communicate()[0]
+    # print output
+    return (output.split()[7]).split('.')[0]
 
 
 def resubmit(Stream,name,workdir,header,sl6_container):
@@ -170,7 +192,7 @@ def resubmit(Stream,name,workdir,header,sl6_container):
     #call(['qsub'+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'], shell=True)
     # proc_qstat = Popen(['condor_qsub'+' -o '+Stream+'/'+' -e '+Stream+'/'+' '+workdir+'/split_script_'+name+'.sh'],shell=True,stdout=PIPE)
     # return proc_qstat.communicate()[0].split()[2]
-    proc_qstat = Popen(['condor_submit'+' '+workdir+'/CondorSubmitfile_'+name+'.submit'+' -a "Stream='+Stream.split('/')[1]+'"'],shell=True,stdout=PIPE)
+    proc_qstat = Popen(['condor_submit'+' '+workdir+'/CondorSubmitfile_'+name+'.submit'+' -a \'"Stream='+Stream.split('/')[1]+'"\''],shell=True,stdout=PIPE)
     return (proc_qstat.communicate()[0].split()[7]).split('.')[0]
 
 def add_histos(directory,name,NFiles,workdir,outputTree, onlyhists,outputdir):
@@ -210,6 +232,6 @@ def add_histos(directory,name,NFiles,workdir,outputTree, onlyhists,outputdir):
         proc = Popen([str(command_string+directory+name+'.root '+source_files+' > '+outputdir+'/hadd.log')], shell=True, stdout=FNULL, stderr=FNULL)
     else:
         print 'Nothing to merge for',name+'.root'
-    return proc
+	return proc
 
 

@@ -34,7 +34,12 @@ class pidWatcher(object):
             return
         try:
             #looking into condor_q for jobs that are idle, running or hold (HTC State 1,2 and 5)
-            proc_cQueue = subprocess.Popen(['condor_q']+ListOfPids+['-af:,','GlobalJobId','JobStatus'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            # proc_cQueue = subprocess.Popen(['condor_q']+ListOfPids+['-af:,','GlobalJobId','JobStatus'],stdout=subprocess.PIPE,stderr=subprocess.PIPE)
+            cmd = ' '.join(['condor_q']+ListOfPids+['-af:,','GlobalJobId','JobStatus'])
+            # print cmd
+            proc_cQueue = subprocess.Popen(cmd,stdout=subprocess.PIPE,stderr=subprocess.PIPE,shell=True)
+            # print "inside Manager"
+            #print proc_cQueue.communicate()[0]
             cQueue_jsons = proc_cQueue.communicate()[0]
             processes_json = []
             if cQueue_jsons:
@@ -46,6 +51,7 @@ class pidWatcher(object):
                 self.parserWorked = True
             else:
                 self.parserWorked = False
+            # print processes_json
         except Exception as e:
             # print e
             self.parserWorked = False
@@ -141,6 +147,7 @@ class JobManager(object):
     def submit_jobs(self,OutputDirectory,nameOfCycle):
         for process in self.subInfo:
             process.startingTime = time.time()
+            # print(process.numberOfFiles,self.outputstream+str(process.name),str(process.name),self.workdir)
             process.arrayPid = submit_qsub(process.numberOfFiles,self.outputstream+str(process.name),str(process.name),self.workdir)
             print 'Submitted jobs',process.name, 'pid', process.arrayPid
             process.reachedBatch = [False]*process.numberOfFiles
